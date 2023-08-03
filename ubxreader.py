@@ -25,6 +25,13 @@ Created on 27 Jul 2023
 :author: semuadmin
 :copyright: SEMU Consulting © 2023
 :license: BSD 3-Clause
+
+
+Modified:
+
+:P.Pitzer 2023-08-01:
+    -modified skeleton to read RAWX messages and calculate TEC
+    TODO: Time Series Plotting of TEC
 """
 # pylint: disable=invalid-name, too-many-instance-attributes
 
@@ -34,9 +41,19 @@ from threading import Event, Thread
 from time import sleep
 from math import sqrt
 
+import datetime as dt
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates 
+import seaborn as sns
+
+import csv
+
 from pynmeagps import NMEAMessageError, NMEAParseError
 from pyrtcm import RTCMMessage, RTCMMessageError, RTCMParseError
 from serial import Serial
+
+
 
 from pyubx2 import (
     NMEA_PROTOCOL,
@@ -49,15 +66,59 @@ from pyubx2 import (
 )
 
 CONNECTED = 1
-
-freqencyDict = {0:1575.42e6, 1:1590.0625e6,2:1575.42e6, 3:1561.098e6, 4:1176.45e6, 5:1575.42e6, 6:1575.42e6, 7:1575.42e6}
-
+data = [] 
+times = []
 def findMatchers(gnssIdBlock, svIdBlock):
     for i in range(len(gnssIdBlock)):
         for j in range(len(gnssIdBlock)):
             if gnssIdBlock[i] != gnssIdBlock[j] and svIdBlock[i] == svIdBlock[j]:   
                 return i,j
     return None, None 
+
+def determineFrequency(gnssId, sigId):
+    if gnssId == 0 and sigId == 0:
+        return 1575.42e6 # L1C/A
+    elif gnssId == 0 and sigId == 3:
+        return 1227.6e6 # L2CL
+    elif gnssId == 0 and sigId == 4:
+        return 1227.6e6 # L2CM
+    elif gnssId == 0 and sigId == 6:
+        return 1176.45e6 # L5 I
+    elif gnssId == 0 and sigId == 7:
+        return 1176.45e6 #L5 Q
+    elif gnssId == 1 and sigId == 0:
+        return 1575.42e6 # SBAS L1C/A
+    elif gnssId == 2 and sigId == 0:
+        return 1575.42e6 # GALI E1 C
+    elif gnssId == 2 and sigId == 1:
+        return 1207.14e6 # E1 B
+    elif gnssId == 2 and sigId == 3:
+        return 1176.45e6 # E5a 
+    elif gnssId == 2 and sigId == 4:
+        return 1176.45e6 #E5a
+    elif gnssId == 2 and sigId == 5:
+        return 1207.14e6 # E5b
+    elif gnssId == 2 and sigId == 6:
+        return 1207.14e6 # E5b
+    elif gnssId == 3 and sigId == 0:
+        return 1561.091e6 # B1I D1
+    elif gnssId == 3 and sigId == 1:
+        return 1561.091e6 # B1I D2
+    elif gnssId == 3 and sigId == 2:
+        return 1207.14e6 # B2I D1
+    elif gnssId == 3 and sigId == 3:
+        return 1207.14e6 # B2I D2
+    elif gnssId == 3 and sigId == 5:
+        return 1575.42e6 # B1C
+    elif gnssId == 3 and sigId == 7:
+        return 1176.45e6 #B2a
+    elif gnssId == 5 and sigId == 0:
+        return 1575.42e6 # QZSS L1C/A 
+    elif gnssId == 5 and sigId == 1:
+        return 1575.42e6 # QZSS L1S
+    elif gnssId == 5 and sigId == 4:
+        return 1227.6e6 # QZSS L2 CM
+        
 
 def calc_tec(f1:float, f2:float, pseudo1:float, pseudo2:float) -> float:
     """
@@ -67,6 +128,14 @@ def calc_tec(f1:float, f2:float, pseudo1:float, pseudo2:float) -> float:
     term2:float = (f1*f2)/(f1-f2)
     term3:float = (pseudo2 - pseudo1)
     return term1*term2*term3
+
+def time_conversion(TOW, WN, leap_seconds):
+    """
+    converts gps time to utc time
+    """
+    epoch = dt.datetime(1980, 1, 6, 0, 0, 0)
+    elapsed = dt.timedelta(seconds=(TOW+leap_seconds), weeks = WN)
+    return epoch + elapsed
 
 
 
@@ -158,6 +227,8 @@ class GNSSSkeletonApp:
         :param Event stopevent: stop event
         :param Queue sendqueue: queue for messages to send to receiver
         """
+        global data
+        global times
 
         ubr = UBXReader(
             stream, protfilter=(NMEA_PROTOCOL | UBX_PROTOCOL | RTCM3_PROTOCOL)
@@ -186,28 +257,36 @@ class GNSSSkeletonApp:
                             if parsed_data.identity == 'RXM-RAWX':
                                 #createa a list of the pseudorange measurements up to 10
 
-                                psuedorangeBlock = [parsed_data.prMes_01, parsed_data.prMes_02, parsed_data.prMes_03, parsed_data.prMes_04, parsed_data.prMes_05, parsed_data.prMes_06, parsed_data.prMes_07, parsed_data.prMes_08, parsed_data.prMes_09, parsed_data.prMes_10]
-
+                                psuedorangeBlock = [parsed_data.prMes_01, parsed_data.prMes_02, parsed_data.prMes_03, parsed_data.prMes_04, 
+                                                    parsed_data.prMes_05, parsed_data.prMes_06, parsed_data.prMes_07, parsed_data.prMes_08, 
+                                                    parsed_data.prMes_09, parsed_data.prMes_10]
                                 #do the same thing for gnssID
-
-                                gnssIdBlock = [parsed_data.gnssId_01, parsed_data.gnssId_02, parsed_data.gnssId_03, parsed_data.gnssId_04, parsed_data.gnssId_05, parsed_data.gnssId_06, parsed_data.gnssId_07, parsed_data.gnssId_08, parsed_data.gnssId_09, parsed_data.gnssId_10]
-
+                                gnssIdBlock = [parsed_data.gnssId_01, parsed_data.gnssId_02, parsed_data.gnssId_03, parsed_data.gnssId_04, 
+                                               parsed_data.gnssId_05, parsed_data.gnssId_06, parsed_data.gnssId_07, parsed_data.gnssId_08, 
+                                               parsed_data.gnssId_09, parsed_data.gnssId_10]
                                 #and svId
-
-                                svIdBlock = [parsed_data.svId_01, parsed_data.svId_02, parsed_data.svId_03, parsed_data.svId_04, parsed_data.svId_05, parsed_data.svId_06, parsed_data.svId_07, parsed_data.svId_08, parsed_data.svId_09, parsed_data.svId_10]
-                                doMesBlock = [parsed_data.doMes_01, parsed_data.doMes_02, parsed_data.doMes_03, parsed_data.doMes_04, parsed_data.doMes_05, parsed_data.doMes_06, parsed_data.doMes_07, parsed_data.doMes_08, parsed_data.doMes_09,parsed_data.doMes_10]
-
+                                svIdBlock = [parsed_data.svId_01, parsed_data.svId_02, parsed_data.svId_03, parsed_data.svId_04, 
+                                             parsed_data.svId_05, parsed_data.svId_06, parsed_data.svId_07, parsed_data.svId_08, 
+                                             parsed_data.svId_09, parsed_data.svId_10]
+                                doMesBlock = [parsed_data.doMes_01, parsed_data.doMes_02, parsed_data.doMes_03, parsed_data.doMes_04, 
+                                              parsed_data.doMes_05, parsed_data.doMes_06, parsed_data.doMes_07, parsed_data.doMes_08, 
+                                              parsed_data.doMes_09,parsed_data.doMes_10]
+                                #sigId hopium that it is here
+                                sigIdBlock = [parsed_data.sigId_01, parsed_data.sigId_02, parsed_data.sigId_03, parsed_data.sigId_04, 
+                                              parsed_data.sigId_05, parsed_data.sigId_06, parsed_data.sigId_07, parsed_data.sigId_08, 
+                                              parsed_data.sigId_09, parsed_data.sigId_10]
 
 
                                 #find two indicies where gnssId is different and svId is the same
-                                datums = []
                                 i,j = findMatchers(gnssIdBlock, svIdBlock)
                                 if i != None and j != None:
-                                    tec = calc_tec(freqencyDict[gnssIdBlock[i]]+doMesBlock[i],freqencyDict[gnssIdBlock[j]]+doMesBlock[j], psuedorangeBlock[i], psuedorangeBlock[j])
+                                    tec = calc_tec(determineFrequency(gnssIdBlock[i], sigIdBlock[i])+doMesBlock[i],
+                                                   determineFrequency(gnssIdBlock[j], sigIdBlock[j])+doMesBlock[j],
+                                                psuedorangeBlock[i], psuedorangeBlock[j])
                                     print("TEC", tec)
-
-                                    while len(datums) < 100:
-                                        datums.append(tec)
+                                    data.append(tec)
+                                    time = time_conversion(parsed_data.rcvTow,parsed_data.week, parsed_data.leapS)
+                                    times.append(time)
                                 
 
 
@@ -378,5 +457,11 @@ if __name__ == "__main__":
         stop_event.set()
         print("Terminated by user")
 
-
-
+        #once the threads are finished, create a plot of the data and display/save it
+        for item in range(len(data)):
+            data[item] = data[item] / 10**16
+        plt.plot(times, data, color = 'blue')
+        plt.xlabel("Time - UTC")
+        plt.ylabel("TEC - TECU")
+        plt.title("Total Electron Content")
+        plt.show()
