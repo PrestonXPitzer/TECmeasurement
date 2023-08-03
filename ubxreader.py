@@ -39,15 +39,9 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from queue import Empty, Queue
 from threading import Event, Thread
 from time import sleep
-from math import sqrt
 
 import datetime as dt
-import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates 
-import seaborn as sns
-
-import csv
 
 from pynmeagps import NMEAMessageError, NMEAParseError
 from pyrtcm import RTCMMessage, RTCMMessageError, RTCMParseError
@@ -276,7 +270,6 @@ class GNSSSkeletonApp:
                                               parsed_data.sigId_05, parsed_data.sigId_06, parsed_data.sigId_07, parsed_data.sigId_08, 
                                               parsed_data.sigId_09, parsed_data.sigId_10]
 
-
                                 #find two indicies where gnssId is different and svId is the same
                                 i,j = findMatchers(gnssIdBlock, svIdBlock)
                                 if i != None and j != None:
@@ -287,32 +280,6 @@ class GNSSSkeletonApp:
                                     data.append(tec)
                                     time = time_conversion(parsed_data.rcvTow,parsed_data.week, parsed_data.leapS)
                                     times.append(time)
-                                
-
-
-
-
-
-                                            
-                                            
-
-                            
-
-
-
-                                
-
-
-
-                                
-
-
-                            
-
-                            
-                            
-                        
-                            
 
                 # send any queued output data to receiver
                 self._send_data(ubr.datastream, sendqueue)
