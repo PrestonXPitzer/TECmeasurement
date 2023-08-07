@@ -56,6 +56,7 @@ from pyubx2 import (
     UBXMessageError,
     UBXParseError,
     UBXReader,
+    SET
 )
 
 CONNECTED = 1
@@ -257,8 +258,8 @@ class GNSSSkeletonApp:
                         else:
                             if parsed_data.identity == 'RXM-RAWX':
                                 #createa a list of the pseudorange measurements up to 32
-
-                                psuedorangeBlock = [parsed_data.prMes_01, parsed_data.prMes_02, parsed_data.prMes_03, parsed_data.prMes_04, 
+                                try:
+                                    psuedorangeBlock = [parsed_data.prMes_01, parsed_data.prMes_02, parsed_data.prMes_03, parsed_data.prMes_04, 
                                                     parsed_data.prMes_05, parsed_data.prMes_06, parsed_data.prMes_07, parsed_data.prMes_08, 
                                                     parsed_data.prMes_09, parsed_data.prMes_10, parsed_data.prMes_11, parsed_data.prMes_12,
                                                     parsed_data.prMes_13, parsed_data.prMes_14, parsed_data.prMes_15, parsed_data.prMes_16,
@@ -266,19 +267,24 @@ class GNSSSkeletonApp:
                                                     parsed_data.prMes_21, parsed_data.prMes_22, parsed_data.prMes_23, parsed_data.prMes_24,
                                                     parsed_data.prMes_25, parsed_data.prMes_26, parsed_data.prMes_27, parsed_data.prMes_28,
                                                     parsed_data.prMes_29, parsed_data.prMes_30, parsed_data.prMes_31, parsed_data.prMes_32]
-                                
+                                except AttributeError:
+                                    continue
                                 #do the same thing for gnssID
-                                gnssIdBlock = [parsed_data.gnssId_01, parsed_data.gnssId_02, parsed_data.gnssId_03, parsed_data.gnssId_04, 
+                                try:
+
+                                    gnssIdBlock = [parsed_data.gnssId_01, parsed_data.gnssId_02, parsed_data.gnssId_03, parsed_data.gnssId_04, 
                                                parsed_data.gnssId_05, parsed_data.gnssId_06, parsed_data.gnssId_07, parsed_data.gnssId_08, 
                                                parsed_data.gnssId_09, parsed_data.gnssId_10, parsed_data.gnssId_11, parsed_data.gnssId_12,
                                                parsed_data.gnssId_13, parsed_data.gnssId_14, parsed_data.gnssId_15, parsed_data.gnssId_16,
                                                parsed_data.gnssId_17, parsed_data.gnssId_18, parsed_data.gnssId_19, parsed_data.gnssId_20,
                                                parsed_data.gnssId_21, parsed_data.gnssId_22, parsed_data.gnssId_23, parsed_data.gnssId_24,
                                                parsed_data.gnssId_25, parsed_data.gnssId_26, parsed_data.gnssId_27, parsed_data.gnssId_28,
-                                               parsed_data.gnssId_29, parsed_data.gnssId_30, parsed_data.gnssId_31, parsed_data.gnssId_32
-                                               ]
+                                               parsed_data.gnssId_29, parsed_data.gnssId_30, parsed_data.gnssId_31, parsed_data.gnssId_32]
+                                except AttributeError:
+                                    continue
                                 #and svId
-                                svIdBlock = [parsed_data.svId_01, parsed_data.svId_02, parsed_data.svId_03, parsed_data.svId_04, 
+                                try:
+                                    svIdBlock = [parsed_data.svId_01, parsed_data.svId_02, parsed_data.svId_03, parsed_data.svId_04, 
                                              parsed_data.svId_05, parsed_data.svId_06, parsed_data.svId_07, parsed_data.svId_08, 
                                              parsed_data.svId_09, parsed_data.svId_10, parsed_data.svId_11, parsed_data.svId_12,
                                              parsed_data.svId_13, parsed_data.svId_14, parsed_data.svId_15, parsed_data.svId_16,
@@ -286,7 +292,10 @@ class GNSSSkeletonApp:
                                              parsed_data.svId_21, parsed_data.svId_22, parsed_data.svId_23, parsed_data.svId_24,
                                              parsed_data.svId_25, parsed_data.svId_26, parsed_data.svId_27, parsed_data.svId_28,
                                              parsed_data.svId_29, parsed_data.svId_30, parsed_data.svId_31, parsed_data.svId_32]
-                                doMesBlock = [parsed_data.doMes_01, parsed_data.doMes_02, parsed_data.doMes_03, parsed_data.doMes_04, 
+                                except AttributeError:
+                                    continue
+                                try:
+                                    doMesBlock = [parsed_data.doMes_01, parsed_data.doMes_02, parsed_data.doMes_03, parsed_data.doMes_04, 
                                               parsed_data.doMes_05, parsed_data.doMes_06, parsed_data.doMes_07, parsed_data.doMes_08, 
                                               parsed_data.doMes_09,parsed_data.doMes_10, parsed_data.doMes_11, parsed_data.doMes_12,
                                                 parsed_data.doMes_13, parsed_data.doMes_14, parsed_data.doMes_15, parsed_data.doMes_16,
@@ -294,16 +303,20 @@ class GNSSSkeletonApp:
                                                 parsed_data.doMes_21, parsed_data.doMes_22, parsed_data.doMes_23, parsed_data.doMes_24,
                                                 parsed_data.doMes_25, parsed_data.doMes_26, parsed_data.doMes_27, parsed_data.doMes_28,
                                                 parsed_data.doMes_29, parsed_data.doMes_30, parsed_data.doMes_31, parsed_data.doMes_32]
+                                except AttributeError:
+                                    continue
                                 #sigId hopium that it is here
-                                sigIdBlock = [parsed_data.sigId_01, parsed_data.sigId_02, parsed_data.sigId_03, parsed_data.sigId_04, 
+                                try:
+                                    sigIdBlock = [parsed_data.sigId_01, parsed_data.sigId_02, parsed_data.sigId_03, parsed_data.sigId_04, 
                                               parsed_data.sigId_05, parsed_data.sigId_06, parsed_data.sigId_07, parsed_data.sigId_08, 
                                               parsed_data.sigId_09, parsed_data.sigId_10, parsed_data.sigId_11, parsed_data.sigId_12,
                                                 parsed_data.sigId_13, parsed_data.sigId_14, parsed_data.sigId_15, parsed_data.sigId_16,
                                                 parsed_data.sigId_17, parsed_data.sigId_18, parsed_data.sigId_19, parsed_data.sigId_20,
                                                 parsed_data.sigId_21, parsed_data.sigId_22, parsed_data.sigId_23, parsed_data.sigId_24,
                                                 parsed_data.sigId_25, parsed_data.sigId_26, parsed_data.sigId_27, parsed_data.sigId_28,
-                                                parsed_data.sigId_29, parsed_data.sigId_30, parsed_data.sigId_31, parsed_data.sigId_32
-                                                ]
+                                                parsed_data.sigId_29, parsed_data.sigId_30, parsed_data.sigId_31, parsed_data.sigId_32]
+                                except AttributeError:
+                                    continue
 
                                 #find two indicies where gnssId is different and svId is the same
                                 i,j = findMatchers(gnssIdBlock, svIdBlock)
@@ -423,6 +436,9 @@ class GNSSSkeletonApp:
 
 
 if __name__ == "__main__":
+    # send a payload to the reciever
+    # B5 62 06 8A 09 00 01 01 00 00 A7 02 91 20 01 F6 79
+    msg2 = UBXReader.parse(b"\xb5\x62\x06\x8a\x09\x00\x01\x01\x00\x00\xa7\x02\x91\x20\x01\xf6\x79", msgmode=SET)
     arp = ArgumentParser(
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
