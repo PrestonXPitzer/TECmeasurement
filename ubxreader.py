@@ -62,10 +62,11 @@ from pyubx2 import (
 CONNECTED = 1
 data = [] 
 times = []
+svids = []
 def findMatchers(gnssIdBlock, svIdBlock):
     for i in range(len(gnssIdBlock)):
         for j in range(len(gnssIdBlock)):
-            if gnssIdBlock[i] != gnssIdBlock[j] and svIdBlock[i] == svIdBlock[j]:   
+            if (gnssIdBlock[i] != gnssIdBlock[j]) and (svIdBlock[i] == svIdBlock[j]):   
                 return i,j
     return None, None 
 
@@ -328,6 +329,7 @@ class GNSSSkeletonApp:
                                     tec = calc_tec(f1,f2,psuedorangeBlock[i], psuedorangeBlock[j])
                                     print("TEC", tec)
                                     data.append(tec)
+                                    svids.append(j) #dump the sv so that we can graph them seperately 
                                     time = time_conversion(parsed_data.rcvTow,parsed_data.week, parsed_data.leapS)
                                     times.append(time)
 
@@ -477,20 +479,45 @@ if __name__ == "__main__":
         stop_event.set()
         print("Terminated by user")
 
+        # for each different value in the sv list, 
+        # create a new pair of lists for the associated data and time
+        superlist = []
+        superlength = 0
+        if len(svids) > 0:
+            superlength = max(svids) 
+        for i in range(superlength):
+            superlist.append([[],[]])
+        for f in range(len(svids)):
+            superlist[svids[f]-1][0].append(times[f])
+            superlist[svids[f]-1][1].append(data[f])
+        
+
+        # for my brain, each index in superlist corresponds to a value of svid
+        # for each of these indecies, there are two lists, 0 is time, 1 is data
+
         #once the threads are finished, create a plot of the data and display/save it
-        for item in range(len(data)):
-            data[item] = data[item] / 10**16
-        plt.plot(times, data, color = 'blue')
-        plt.xlabel("Time - UTC")
-        plt.ylabel("TEC - TECU")
-        plt.title("Total Electron Content")
+        # create a stack plot, where each line is a different svid
+
+        #copy the non-empty lists into a new list
+        newlist = []
+        for i in range(len(superlist)):
+            if len(superlist[i][0]) > 0:
+                newlist.append(superlist[i])
+        for i in range(len(newlist)):
+            plt.subplot(len(newlist), 1, i+1)
+            plt.title("SV" + str(i+1))
+            plt.plot(newlist[i][0], newlist[i][1], label = "SV" + str(i+1))
+        plt.legend()
         plt.show()
 
-        #save the data to a csv file
+
+
+
+        #save the data, time, and svid to a csv file
         with open('data.csv', 'w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(["Time", "TEC"])
+            writer.writerow(["Time", "Data", "SV"])
             for i in range(len(data)):
-                writer.writerow([times[i], data[i]])
-        print("Data saved to data.csv")
+                writer.writerow([times[i], data[i], svids[i]])
+
         
