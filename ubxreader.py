@@ -63,6 +63,8 @@ CONNECTED = 1
 data = [] 
 times = []
 svids = []
+gnssids = []
+psuedos = []
 def findMatchers(gnssIdBlock, svIdBlock):
     for i in range(len(gnssIdBlock)):
         for j in range(len(gnssIdBlock)):
@@ -329,6 +331,10 @@ class GNSSSkeletonApp:
                                     tec = calc_tec(f1,f2,psuedorangeBlock[i], psuedorangeBlock[j])
                                     print("TEC", tec)
                                     data.append(tec)
+                                    psuedos.append([psuedorangeBlock[i], psuedorangeBlock[j]])
+                                    gnssids.append([gnssIdBlock[i], gnssIdBlock[j]])
+
+
                                     svids.append(j) #dump the sv so that we can graph them seperately 
                                     time = time_conversion(parsed_data.rcvTow,parsed_data.week, parsed_data.leapS)
                                     times.append(time)
@@ -516,8 +522,8 @@ if __name__ == "__main__":
         #save the data, time, and svid to a csv file
         with open('data.csv', 'w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(["Time", "Data", "SV"])
+            writer.writerow(["Time", "Data", "SV", "psuedo-1", "pseudo-2", "gnssid-1", "gnssid-2"])
             for i in range(len(data)):
-                writer.writerow([times[i], data[i], svids[i]])
+                writer.writerow([times[i], data[i], svids[i], psuedos[i][0], psuedos[i][1], gnssids[i][0], gnssids[i][1]])
 
         
