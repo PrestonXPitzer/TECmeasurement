@@ -40,6 +40,7 @@ from threading import Event, Thread
 from time import sleep
 
 import datetime as dt
+import math
 import matplotlib.pyplot as plt
 
 from pynmeagps import NMEAMessageError, NMEAParseError
@@ -65,6 +66,9 @@ times = []
 svids = []
 gnssids = []
 psuedos = []
+elevations = []
+VTECs = []
+
 def findMatchers(gnssIdBlock, svIdBlock):
     for i in range(len(gnssIdBlock)):
         for j in range(len(gnssIdBlock)):
@@ -121,10 +125,7 @@ def determineFrequency(gnssId, sigId):
         return 1242.9375e6 #GLONASS L2
     elif gnssId == 7 and sigId == 0:
         return 1176.45e6 #NAVIC L5
-
-
-        
-
+    
 def calc_tec(f1:float, f2:float, pseudo1:float, pseudo2:float) -> float:
     """
     Calculates the TEC value using eqn 6 from that one paper
@@ -141,6 +142,20 @@ def time_conversion(TOW, WN, leap_seconds):
     epoch = dt.datetime(1980, 1, 6, 0, 0, 0)
     elapsed = dt.timedelta(seconds=(TOW+leap_seconds), weeks = WN)
     return epoch + elapsed
+
+def verticalIntegration(tec,angle):
+    """
+    determines the vertical TEC from slant measurements
+    height is assumed to be 350km
+    angle is the elevation angle of the sat relative to the reciever
+    """
+    # height is in kilometers
+    height = 350
+    Re = 6371e3 #radius of the earth in kilometers
+    #Olatunbosun et. al. 2019 eqn 2 
+    cos_inner = math.asin((Re*math.cos(angle))/(Re+height))
+    return tec*math.cos(cos_inner)
+
 
 
 
@@ -320,7 +335,19 @@ class GNSSSkeletonApp:
                                                 parsed_data.sigId_29, parsed_data.sigId_30, parsed_data.sigId_31, parsed_data.sigId_32]
                                 except AttributeError:
                                     continue
-
+                            if parsed_data.identity == 'NAV-SAT':
+                                #create a list of the elevation measurements up to 32
+                                try:
+                                    elvIdBlock = [parsed_data.elev_01, parsed_data.elev_02, parsed_data.elev_03, parsed_data.elev_04,
+                                                  parsed_data.elev_05, parsed_data.elev_06, parsed_data.elev_07, parsed_data.elev_08,
+                                                  parsed_data.elev_09, parsed_data.elev_10, parsed_data.elev_11, parsed_data.elev_12,
+                                                  parsed_data.elev_13, parsed_data.elev_14, parsed_data.elev_15, parsed_data.elev_16,
+                                                  parsed_data.elev_17, parsed_data.elev_18, parsed_data.elev_19, parsed_data.elev_20,
+                                                  parsed_data.elev_21, parsed_data.elev_22, parsed_data.elev_23, parsed_data.elev_24,
+                                                  parsed_data.elev_25, parsed_data.elev_26, parsed_data.elev_27, parsed_data.elev_28,
+                                                  parsed_data.elev_29, parsed_data.elev_30, parsed_data.elev_31, parsed_data.elev_32]
+                                except AttributeError:
+                                    continue
                                 #find two indicies where gnssId is different and svId is the same
                                 i,j = findMatchers(gnssIdBlock, svIdBlock)
                                 if i is not None and j is not None:
@@ -338,6 +365,8 @@ class GNSSSkeletonApp:
                                     svids.append(j) #dump the sv so that we can graph them seperately 
                                     time = time_conversion(parsed_data.rcvTow,parsed_data.week, parsed_data.leapS)
                                     times.append(time)
+                                    elevations.append([elvIdBlock[i], elvIdBlock[j]])
+
 
                 # send any queued output data to receiver
                 self._send_data(ubr.datastream, sendqueue)
@@ -516,14 +545,14 @@ if __name__ == "__main__":
         plt.legend()
         plt.show()
 
-
-
-
+        #convert the TEC data into vertical TEC data
+        for i in range(len(data)):
+            VTECs.append(verticalIntegration(data[i], elevations[i][0]))
         #save the data, time, and svid to a csv file
         with open('data.csv', 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(["Time", "Data", "SV", "psuedo-1", "pseudo-2", "gnssid-1", "gnssid-2"])
             for i in range(len(data)):
-                writer.writerow([times[i], data[i], svids[i], psuedos[i][0], psuedos[i][1], gnssids[i][0], gnssids[i][1]])
+                writer.writerow([times[i], data[i], svids[i], psuedos[i][0], psuedos[i][1], gnssids[i][0], gnssids[i][1]], VTECs[i])
 
         
