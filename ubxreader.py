@@ -31,6 +31,11 @@ Modified:
 
 :P.Pitzer 2023-08-01:
     -modified skeleton to read RAWX messages and calculate TEC
+:P.Pitzer 2023-11-03:
+    -modified skeleton to read UBX-NAV-SAT messages and extract elevation data
+    -added a function to calculate vertical TEC from slant TEC using the elevation data
+    -modified the .csv file to include the new VTEC data
+    
 """
 # pylint: disable=invalid-name, too-many-instance-attributes
 
@@ -257,6 +262,7 @@ class GNSSSkeletonApp:
             try:
                 if stream.in_waiting:
                     _, parsed_data = ubr.read()
+                    print("MSG recieved")
                     if parsed_data:
                         # extract current navigation solution
                         self._extract_coordinates(parsed_data)
@@ -349,7 +355,10 @@ class GNSSSkeletonApp:
                                 except AttributeError:
                                     continue
                                 #find two indicies where gnssId is different and svId is the same
-                                i,j = findMatchers(gnssIdBlock, svIdBlock)
+                                try:
+                                    i,j = findMatchers(gnssIdBlock, svIdBlock)
+                                except UnboundLocalError: #if nav-sat comes in before a rawx message
+                                    continue
                                 if i is not None and j is not None:
                                     f1 = determineFrequency(gnssIdBlock[i], sigIdBlock[i]) + doMesBlock[i]
                                     f2 = determineFrequency(gnssIdBlock[j], sigIdBlock[j]) + doMesBlock[j]
@@ -357,14 +366,16 @@ class GNSSSkeletonApp:
 
                                     tec = calc_tec(f1,f2,psuedorangeBlock[i], psuedorangeBlock[j])
                                     print("TEC", tec)
+                                    print("VTEC", verticalIntegration(tec, elvIdBlock[i])/10e16, "TECU")
                                     data.append(tec)
                                     psuedos.append([psuedorangeBlock[i], psuedorangeBlock[j]])
                                     gnssids.append([gnssIdBlock[i], gnssIdBlock[j]])
 
 
                                     svids.append(j) #dump the sv so that we can graph them seperately 
-                                    time = time_conversion(parsed_data.rcvTow,parsed_data.week, parsed_data.leapS)
-                                    times.append(time)
+                                    if parsed_data.identity == 'RXM-RAWX': #only rawx has the time data
+                                        time = time_conversion(parsed_data.rcvTow,parsed_data.week, parsed_data.leapS)
+                                        times.append(time)
                                     elevations.append([elvIdBlock[i], elvIdBlock[j]])
 
 
@@ -480,7 +491,7 @@ if __name__ == "__main__":
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
     arp.add_argument(
-        "-P", "--port", required=False, help="Serial port", default="COM8"
+        "-P", "--port", required=False, help="Serial port", default="COM7"
     )
     arp.add_argument(
         "-B", "--baudrate", required=False, help="Baud rate", default=38400, type=int
@@ -522,9 +533,9 @@ if __name__ == "__main__":
             superlength = max(svids) 
         for i in range(superlength):
             superlist.append([[],[]])
-        for f in range(len(svids)):
-            superlist[svids[f]-1][0].append(times[f])
-            superlist[svids[f]-1][1].append(data[f])
+        for f in range(len(svids)-1):
+            superlist[svids[f]-1][0].append(times[f-1])
+            superlist[svids[f]-1][1].append(data[f-1])
         
 
         # for my brain, each index in superlist corresponds to a value of svid
